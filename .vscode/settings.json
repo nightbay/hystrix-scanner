@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "spidev.h": "c",
+        "gpiod.h": "c",
+        "ccan_json_json.h": "c",
+        "cstdio": "c"
+    }
+}
