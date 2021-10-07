@@ -26,7 +26,6 @@
 #include <stdint.h>
 #include <linux/spi/spidev.h>
 #include <gpiod.h>
-#include <ccan_json_json.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/types.h>
