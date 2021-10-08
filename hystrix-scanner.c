@@ -59,7 +59,7 @@ struct gpiod_chip *gpio_chip;
 struct gpiod_line_bulk gpio_code = GPIOD_LINE_BULK_INITIALIZER;
 struct gpiod_line_bulk gpio_sel_sens = GPIOD_LINE_BULK_INITIALIZER;
 int main(int argc, char *argv[]){
-
+    int sel_sens[3], code[3];
     int exitcode = EXIT_SUCCESS;
     /* setup: configure gpios */
     gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
@@ -78,9 +78,27 @@ int main(int argc, char *argv[]){
         gpio_line = gpiod_chip_get_line(gpio_chip, mux_sel_sens[i]);
 
         gpiod_line_bulk_add(&gpio_sel_sens, gpio_line);
+
+      
     }
 
+    int ret = gpiod_line_request_bulk_output(&gpio_sel_sens,
+                        "sel_sens", sel_sens);
 
+    if( ret == -1 ){
+        printf("unable to request sel_sens gpios\n\r");
+        exitcode = EXIT_FAILURE;;
+        goto bailout;
+    }  
+
+    ret = gpiod_line_request_bulk_input(&gpio_code,
+                        "code");
+
+    if( ret == -1 ){
+        printf("unable to request code gpios\n\r");
+        exitcode = EXIT_FAILURE;;
+        goto bailout;
+    }  
     /* iterate sensors on spi/i2c */
 
     JsonNode *sensor_readings = json_mkarray();
@@ -200,7 +218,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
         JsonNode *json_value = json_mknumber(inbuf.ch[adc_chan]);
         JsonNode *json_code = json_mknumber(channels_type);
         json_append_member(result, "value", json_value);        
-        json_append_member(result, "code", json_value);        
+        json_append_member(result, "code", json_code);
     }
 
 bailout1:
@@ -230,8 +248,8 @@ uint8_t mux_channel(uint8_t channel){
             sel_sens[i] = 0;
     }
 
-	int ret = gpiod_line_request_bulk_output(&gpio_sel_sens,
-					     "sel_sens", sel_sens);
+	int ret = gpiod_line_set_value_bulk(&gpio_sel_sens,
+					      sel_sens);
 
     if( ret == -1 ){
         printf("unable to set sel_sens gpios\n\r");
@@ -239,7 +257,7 @@ uint8_t mux_channel(uint8_t channel){
         goto bailout;
     }
 
-    ret = gpiod_line_get_value_bulk(&gpio_code, &code);
+    ret = gpiod_line_get_value_bulk(&gpio_code, code);
 
     if( ret == -1 ){
         printf("unable to get code gpios\n\r");
