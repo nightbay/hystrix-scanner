@@ -29,7 +29,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/types.h>
-
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <string.h>
 #include "hystrix-scanner.h"
 
 /* gpio code 0-2 */
@@ -59,6 +62,8 @@ struct gpiod_chip *gpio_chip;
 struct gpiod_line_bulk gpio_code = GPIOD_LINE_BULK_INITIALIZER;
 struct gpiod_line_bulk gpio_sel_sens = GPIOD_LINE_BULK_INITIALIZER;
 int main(int argc, char *argv[]){
+    struct sockaddr_un server;
+    int sock;    
     int sel_sens[3], code[3];
     int exitcode = EXIT_SUCCESS;
     /* setup: configure gpios */
@@ -130,7 +135,34 @@ int main(int argc, char *argv[]){
         json_append_element(sensor_readings, json_result);
     }
 
-    printf(json_encode(sensor_readings));    
+    char* encoded = json_encode(sensor_readings);
+    printf(encoded);
+
+    sock = socket(AF_UNIX, SOCK_STREAM, 0);  
+
+    if (sock < 0) {
+        perror("opening stream socket");
+        exitcode = EXIT_FAILURE;
+        goto bailout;
+    }
+    
+    server.sun_family = AF_UNIX;
+    strcpy(server.sun_path, argv[1]);
+
+
+    if (connect(sock, (struct sockaddr *) &server, sizeof(struct sockaddr_un)) < 0) {
+        close(sock);
+        perror("connecting stream socket");
+        exitcode = EXIT_FAILURE;
+        goto bailout;
+    }
+    if (write(sock, encoded, strlen(encoded)) < 0){
+        perror("writing on stream socket");
+        exitcode = EXIT_FAILURE;
+    }
+        
+    close(sock);
+
 bailout:
     exit(exitcode);
 }
@@ -142,7 +174,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     char* device;
     char *encoded;
     int adc_chan;
-    uint8_t inbuf[4];
+    adc_data_t inbuf;
     
     JsonNode *result = json_mkobject();
 
@@ -150,15 +182,16 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
         case 0:
         case 1:
             device = adc_device0;
-            adc_chan = 0;
+            //adc_chan = 0;
             break;
         case 2:
         case 3:
             device = adc_device1;
-            adc_chan = 1;
+            //adc_chan = 1;
             break;
     }
 
+    adc_chan = channel & ADC_1;
     int fd = open(device, O_RDWR);
     if (fd < 0)    
     {
@@ -199,7 +232,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
 
 	struct spi_ioc_transfer tr = {
 		.tx_buf = NULL,
-		.rx_buf = (unsigned long long)inbuf,
+		.rx_buf = (unsigned long long)inbuf.raw,
 		.len = 4,
 		.delay_usecs = delay,
 		.speed_hz = speed,
@@ -215,7 +248,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     }
     else
     {
-        JsonNode *json_value = json_mknumber(inbuf[adc_chan]);
+        JsonNode *json_value = json_mknumber(inbuf.ch[adc_chan]);
         JsonNode *json_code = json_mknumber(channels_type);
         json_append_member(result, "value", json_value);        
         json_append_member(result, "code", json_code);

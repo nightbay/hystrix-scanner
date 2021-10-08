@@ -4,7 +4,7 @@
   #include <stdio.h>
 
 
-  #define NAME "/tmp/hystrix-socket"
+  #define SOCKET_NAME "/tmp/hystrix-socket"
 
 
   main()
@@ -20,7 +20,7 @@
           exit(1);
       }
       server.sun_family = AF_UNIX;
-      strcpy(server.sun_path, NAME);
+      strcpy(server.sun_path, SOCKET_NAME);
       if (bind(sock, (struct sockaddr *) &server, sizeof(struct sockaddr_un))) {
           perror("binding stream socket");
           exit(1);
@@ -43,5 +43,5 @@
           close(msgsock);
       }
       close(sock);
-      unlink(NAME);
+      unlink(SOCKET_NAME);
  }

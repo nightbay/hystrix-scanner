@@ -3,6 +3,8 @@
         "spidev.h": "c",
         "gpiod.h": "c",
         "ccan_json_json.h": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "hystrix-scanner.h": "c",
+        "un.h": "c"
     }
 }
