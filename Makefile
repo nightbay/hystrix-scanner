@@ -3,6 +3,7 @@ DISTDIR=dist/
 MKDIR=mkdir
 
 OBJECTFILES= \
+	${OBJECTDIR}/hystrix-server.o \
 	${OBJECTDIR}/hystrix-scanner.o \
 	${OBJECTDIR}/ccan_json_json.o
 
@@ -12,10 +13,19 @@ ${DISTDIR}hystrix-scanner: ${OBJECTFILES}
 	${MKDIR} -p ${DISTDIR}
 	$(LINK.c) -o ${DISTDIR}hystrix-scanner ${OBJECTFILES} ${LDLIBSOPTIONS} ${LDFLAGS}
 
+${DISTDIR}hystrix-server: ${OBJECTFILES}
+	${MKDIR} -p ${DISTDIR}
+	$(LINK.c) -o ${DISTDIR}hystrix-server ${OBJECTFILES} ${LDLIBSOPTIONS} ${LDFLAGS}
+
 ${OBJECTDIR}/hystrix-scanner.o: hystrix-scanner.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) ${CFLAGS} -MMD -MP -MF $@.d -o ${OBJECTDIR}/hystrix-scanner.o hystrix-scanner.c
+
+${OBJECTDIR}/hystrix-server.o: hystrix-server.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) ${CFLAGS} -MMD -MP -MF $@.d -o ${OBJECTDIR}/hystrix-server.o hystrix-server.c
 
 ${OBJECTDIR}/ccan_json_json.o: ccan_json_json.c 
 	${MKDIR} -p ${OBJECTDIR}

@@ -54,7 +54,7 @@ JsonNode* read_rs232(uint8_t channel, uint8_t channels_type);
 uint8_t mux_channel(uint8_t channel);
 
 typedef union {
-    __u64 raw;
-    uint16_t ch[4];
+    uint32_t raw;
+    uint16_t ch[2];
 } adc_data_t;
 #endif

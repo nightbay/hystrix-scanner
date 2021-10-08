@@ -120,10 +120,10 @@ int main(int argc, char *argv[]){
 
         switch( channels_type ){
             case VOC_CHANNELS:
-                json_result = read_voc(channel, channels_type);                
+                json_result = read_voc(channel, channel_code);                
                 break;
             case EC_CHANNELS:
-                json_result = read_electrochemical(channel, channels_type);
+                json_result = read_electrochemical(channel, channel_code);
                 break;                
         }
 
@@ -142,7 +142,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     char* device;
     char *encoded;
     int adc_chan;
-    adc_data_t inbuf;
+    uint8_t inbuf[4];
     
     JsonNode *result = json_mkobject();
 
@@ -199,7 +199,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
 
 	struct spi_ioc_transfer tr = {
 		.tx_buf = NULL,
-		.rx_buf = inbuf.raw,
+		.rx_buf = (unsigned long long)inbuf,
 		.len = 4,
 		.delay_usecs = delay,
 		.speed_hz = speed,
@@ -215,7 +215,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     }
     else
     {
-        JsonNode *json_value = json_mknumber(inbuf.ch[adc_chan]);
+        JsonNode *json_value = json_mknumber(inbuf[adc_chan]);
         JsonNode *json_code = json_mknumber(channels_type);
         json_append_member(result, "value", json_value);        
         json_append_member(result, "code", json_code);
@@ -230,7 +230,9 @@ bailout2:
 /* VOC (Volatile Organic Compounds) sensors on i2c */
 
 JsonNode* read_voc(uint8_t channel, uint8_t channels_type){
-
+    JsonNode *result = json_mkobject();
+    json_append_member(result, "random", json_mknumber(rand()));
+    return result;
 }
 
 JsonNode* read_rs232(uint8_t channel, uint8_t channels_type){
