@@ -2,7 +2,7 @@
   #include <sys/socket.h>
   #include <sys/un.h>
   #include <stdio.h>
-
+  #include <stdlib.h>
 
   #define SOCKET_NAME "/tmp/hystrix-socket"
 

@@ -33,6 +33,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <string.h>
+#include <linux/i2c-dev.h>
+#include <linux/i2c.h>
+
 #include "hystrix-scanner.h"
 
 /* gpio code 0-2 */
@@ -51,6 +54,7 @@ int mux_sel_sens[] = {
 
 static const char *adc_device0 = "/dev/spidev1.0";
 static const char *adc_device1 = "/dev/spidev1.1";
+static const char *voc_devices = "/dev/i2c-0";
 
 uint32_t mode;
 uint8_t bits = 32;
@@ -168,13 +172,14 @@ bailout:
 }
 
 
-/* electrochemical sensors on spi */
+/* VOC (Volatile Organic Compounds)  sensors on spi */
 JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     int ret;
     char* device;
     char *encoded;
     int adc_chan;
     adc_data_t inbuf;
+    uint32_t buf[1];
     
     JsonNode *result = json_mkobject();
 
@@ -202,7 +207,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     /*
 	 * spi mode
 	 */
-	//ret = ioctl(fd, SPI_IOC_WR_MODE32, &mode);
+	ret = ioctl(fd, SPI_IOC_WR_MODE32, &mode);
 	if (ret == -1)
     {
         printf("can't set spi mode\n\r");
@@ -232,7 +237,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
 
 	struct spi_ioc_transfer tr = {
 		.tx_buf = NULL,
-		.rx_buf = (unsigned long long)inbuf.raw,
+		.rx_buf = (unsigned long long)buf,
 		.len = 4,
 		.delay_usecs = delay,
 		.speed_hz = speed,
@@ -248,6 +253,7 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     }
     else
     {
+        inbuf.dbg = buf;
         JsonNode *json_value = json_mknumber(inbuf.ch[adc_chan]);
         JsonNode *json_code = json_mknumber(channels_type);
         json_append_member(result, "value", json_value);        
@@ -260,9 +266,9 @@ bailout2:
     return result;
 }
 
-/* VOC (Volatile Organic Compounds) sensors on i2c */
+/* Electrochemical sensors on i2c */
 
-JsonNode* read_voc(uint8_t channel, uint8_t channels_type){
+JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type){
     JsonNode *result = json_mkobject();
     json_append_member(result, "random", json_mknumber(rand()));
     return result;
@@ -277,11 +283,10 @@ uint8_t mux_channel(uint8_t channel){
     int sel_sens[3], code[3], i;
 
     for( i = 0; i < 3; i++){
-        if( channel & (1 << i) != 0)
-            sel_sens[i] = 1;
-        else
-            sel_sens[i] = 0;
+        sel_sens[i] =  channel & (1U << i) ? 1: 0;
     }
+
+    printf("muxing %d to %x%x%x\n\r", channel, sel_sens[2],sel_sens[1],sel_sens[0] );
 
 	int ret = gpiod_line_set_value_bulk(&gpio_sel_sens,
 					      sel_sens);
