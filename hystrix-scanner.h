@@ -48,14 +48,38 @@
 #define ADC_0            0
 #define ADC_1           (1 << 1)
 
+/* i2c - ec sensor SHT21 */
+//---------- Defines -----------------------------------------------------------
+#define I2C_ADD 0x40	// I2C device address
+
+const uint16_t POLYNOMIAL = 0x131;  // P(x)=x^8+x^5+x^4+1 = 100110001
+
+//==============================================================================
+#define TRIGGER_T_MEASUREMENT_HM 0XE3   // command trig. temp meas. hold master
+#define TRIGGER_RH_MEASUREMENT_HM 0XE5  // command trig. hum. meas. hold master
+#define TRIGGER_T_MEASUREMENT_NHM 0XF3  // command trig. temp meas. no hold master
+#define TRIGGER_RH_MEASUREMENT_NHM 0XF5 // command trig. hum. meas. no hold master
+#define USER_REGISTER_W 0XE6		    // command writing user register
+#define USER_REGISTER_R 0XE7            // command reading user register
+#define SOFT_RESET 0XFE                 // command soft reset
+//==============================================================================
+
+
 JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type);
 JsonNode* read_voc(uint8_t channel, uint8_t channels_type);
 JsonNode* read_rs232(uint8_t channel, uint8_t channels_type);
 uint8_t mux_channel(uint8_t channel);
+void sleep_ms(int milliseconds);
 
+
+double SHT21_getHumidity(int sensor_fd);
+double SHT21_getTemperature(int sensor_fd);
+
+void SHT21_reset(int sensor_fd);
+uint16_t SHT21_readSensor_hm(int sensor_fd, uint8_t command);
 typedef union {
     uint8_t raw[4];
     uint16_t ch[2];
-    uint32_t dbg;
+    uint32_t dbg[1];
 } adc_data_t;
 #endif
