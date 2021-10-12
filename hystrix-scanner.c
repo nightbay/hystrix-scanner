@@ -372,7 +372,7 @@ double SHT21_getHumidity(int sensor_fd)
 {
     uint16_t result; // return variable
 
-    result = readSensor_hm(sensor_fd, TRIGGER_RH_MEASUREMENT_NHM);
+    result = SHT21_readSensor_hm(sensor_fd, TRIGGER_RH_MEASUREMENT_NHM);
     //result = SHT21_readSensor_hm(TRIGGER_RH_MEASUREMENT_HM);
 
     return SHT21_CalcRH(result);
@@ -497,9 +497,9 @@ uint16_t SHT21_readSensor_hm(int sensor_fd, uint8_t command)
     result = (data[0] << 8);
     result += data[1];
 
-    if (SHT21_hmCRC_Checksum(data, 2, checksum))
+    if (SHT21_CRC_Checksum(data, 2, checksum))
     {
-        SHT21_hmreset();
+        SHT21_reset(sensor_fd);
         return 1;
     }
 

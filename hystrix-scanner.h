@@ -74,9 +74,13 @@ void sleep_ms(int milliseconds);
 
 double SHT21_getHumidity(int sensor_fd);
 double SHT21_getTemperature(int sensor_fd);
+double SHT21_CalcRH(uint16_t rh);
+double SHT21_CalcT(uint16_t t);
 
 void SHT21_reset(int sensor_fd);
 uint16_t SHT21_readSensor_hm(int sensor_fd, uint8_t command);
+uint8_t SHT21_CRC_Checksum(uint8_t data[], uint8_t no_of_bytes, uint8_t checksum);
+
 typedef union {
     uint8_t raw[4];
     uint16_t ch[2];
