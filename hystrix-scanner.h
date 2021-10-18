@@ -35,7 +35,7 @@
 #define SPI_IOC_WR_MODE32               _IOW(SPI_IOC_MAGIC, 5, __u32)
 #endif
 
-#define GPIO_BANK 1
+#define GPIO_BANK 0
 
 #define EC_CHANNELS 0
 
