@@ -52,7 +52,7 @@ int mux_sel_sens[] = {
 
 static const char *adc_device0 = "/dev/spidev1.0";
 static const char *adc_device1 = "/dev/spidev1.1";
-static const char *voc_devices = "/dev/i2c-0";
+static const char *voc_devices = "/dev/i2c-2";
 
 uint32_t mode = 0;
 uint8_t bits = 32;
