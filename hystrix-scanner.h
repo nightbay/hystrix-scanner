@@ -52,7 +52,6 @@
 //---------- Defines -----------------------------------------------------------
 #define I2C_ADD 0x40	// I2C device address
 
-const uint16_t POLYNOMIAL = 0x131;  // P(x)=x^8+x^5+x^4+1 = 100110001
 
 //==============================================================================
 #define TRIGGER_T_MEASUREMENT_HM 0XE3   // command trig. temp meas. hold master
@@ -69,17 +68,11 @@ JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type);
 JsonNode* read_voc(uint8_t channel, uint8_t channels_type);
 JsonNode* read_rs232(uint8_t channel, uint8_t channels_type);
 uint8_t mux_channel(uint8_t channel);
-void sleep_ms(int milliseconds);
 
 
-double SHT21_getHumidity(int sensor_fd);
-double SHT21_getTemperature(int sensor_fd);
 double SHT21_CalcRH(uint16_t rh);
 double SHT21_CalcT(uint16_t t);
-
-void SHT21_reset(int sensor_fd);
-uint16_t SHT21_readSensor_hm(int sensor_fd, uint8_t command);
-uint8_t SHT21_CRC_Checksum(uint8_t data[], uint8_t no_of_bytes, uint8_t checksum);
+char *sht21_read_sysfs(char* filename);
 
 typedef union {
     uint8_t raw[4];

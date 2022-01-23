@@ -28,6 +28,7 @@
 #include <gpiod.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include <linux/types.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -54,6 +55,9 @@ static const char *adc_device0 = "/dev/spidev1.0";
 static const char *adc_device1 = "/dev/spidev1.1";
 static const char *voc_devices = "/dev/i2c-2";
 
+static const char *sht21_umidity_entry = "/sys/class/hwmon/hwmon1/humidity1_input";
+static const char *sht21_temperature_entry = "/sys/class/hwmon/hwmon1/temp1_input";
+
 uint32_t mode = 0;
 uint8_t bits = 32;
 uint32_t speed = 2000000;
@@ -69,6 +73,9 @@ int main(int argc, char *argv[])
     int sock;
     int sel_sens[3], code[3];
     int exitcode = EXIT_SUCCESS;
+
+    int chan_input = atoi(argv[2]);
+    printf("chan_input %d\n\r", chan_input);
 
     /* setup: configure gpios */
     gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
@@ -121,6 +128,9 @@ int main(int argc, char *argv[])
 
     for (channel = 0; channel < 8; channel++)
     {
+	//if( channel != chan_input )
+	//	continue;
+
         channel_code = mux_channel(channel);
 
         if (channel_code == 0xff)
@@ -143,6 +153,9 @@ int main(int argc, char *argv[])
             break;
         }
 
+	// non sono i voc ma gli ec
+	//
+	 //json_result = read_voc(channel, channel_code);
         json_append_element(sensor_readings, json_result);
     }
 
@@ -180,27 +193,57 @@ bailout:
     exit(exitcode);
 }
 
+#define my_adc_chan0 0xa0000000
+#define my_adc_chan1 0xa1000000
+
 /* VOC (Volatile Organic Compounds)  sensors on spi */
 JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
 {
-    int ret;
+    JsonNode *result = json_mkobject();    
+    int dbg = 0;
+
+    if( dbg ){
+        json_append_member(result, "random", json_mknumber((uint16_t)rand()));
+        json_append_member(result, "dbg_chan", json_mknumber(channel));
+        JsonNode *json_code = json_mknumber(channels_type);
+        json_append_member(result, "code", json_code);
+
+        goto bailout;
+    }
+
+bailout:
+    return result;    
+}
+
+/* Electrochemical sensors on i2c */
+JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type){
+   int ret;
     char *device;
     char *encoded;
     int adc_chan;
     adc_data_t inbuf;
     uint32_t buf[1];
+    uint32_t txBuf[1];
 
     JsonNode *result = json_mkobject();
 
     switch (channel)
     {
-    case 4:
-    case 5:
+    case 0:
+        txBuf[0] = my_adc_chan0;
+        device = adc_device0;
+	break;	
+    case 1:
+	txBuf[0] = my_adc_chan1;
         device = adc_device0;
         break;
-    case 6:
-    case 7:
+    case 2:
         device = adc_device1;
+        txBuf[0] = my_adc_chan0;
+        break;	
+    case 3:
+        device = adc_device1;
+	txBuf[0] = my_adc_chan1;
         break;
     }
 
@@ -244,13 +287,16 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
     }
 
     struct spi_ioc_transfer tr = {
-        .tx_buf = NULL,
+        .tx_buf = (unsigned long)txBuf,
         .rx_buf = (unsigned long)buf,
         .len = 4,
         .delay_usecs = delay,
         .speed_hz = speed,
         .bits_per_word = bits,
     };
+
+    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
+    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
 
     ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 
@@ -266,7 +312,8 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
         JsonNode *json_code = json_mknumber(channels_type);
         json_append_member(result, "value", json_value);
         json_append_member(result, "code", json_code);
-        json_append_member(result, "debug", json_mknumber(inbuf.dbg[0]));
+        json_append_member(result, "humidity", json_mkstring(humidity));
+        json_append_member(result, "temperature", json_mkstring(temperature));
         json_append_member(result, "dbg_chan", json_mknumber(channel));
 
         printf("channel %d adc_chan %d code %d value %x\n\r", channel, adc_chan, channels_type, inbuf.dbg[0]);
@@ -278,54 +325,28 @@ bailout2:
     return result;
 }
 
-/* Electrochemical sensors on i2c */
-
-JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type)
-{
-    JsonNode *result = json_mkobject();
-    int dbg = 1;
-
-    if( dbg ){
-        json_append_member(result, "random", json_mknumber((uint16_t)rand()));
-        json_append_member(result, "dbg_chan", json_mknumber(channel));
-        goto bailout;
-    }
-
-    int i2c_dev_node = open(voc_devices, O_RDWR), ret_val;
-
-    if (i2c_dev_node < 0)
-    {
-        const char *errmsg = "Unable to open voc device node\n\r";
-
-        json_append_member(result, "error", json_mkstring(errmsg));
-        json_append_member(result, "dbg_chan", json_mknumber(channel));
-        goto bailout;
-    }
-
-    ret_val = ioctl(i2c_dev_node, I2C_SLAVE, I2C_ADD);
-    if (ret_val < 0)
-    {
-        const char *errmsg = "Unable to set voc slave mode\n\r";
-
-        json_append_member(result, "error", json_mkstring(errmsg));
-        json_append_member(result, "dbg_chan", json_mknumber(channel));
-        goto bailout;
-    }
-
-    double reading;
-    reading = SHT21_getHumidity(i2c_dev_node);
-    json_append_member(result, "humidity", json_mknumber(reading));
-
-    reading = SHT21_getTemperature(i2c_dev_node);
-    json_append_member(result, "temperature", json_mknumber(reading));
-
-    close(i2c_dev_node);
-bailout:
-    return result;
-}
-
 JsonNode *read_rs232(uint8_t channel, uint8_t channels_type)
 {
+}
+
+char *sht21_read_sysfs(char* filename){
+        static char buf[1024];
+        ssize_t len;
+        int fd;
+
+        fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+            sprintf(buf, "%d", 0);
+		}
+
+        len = read(fd, buf, sizeof(buf)-1);
+        if (len < 0) {
+            sprintf(buf, "%d", 0);
+        }
+
+        buf[len] = 0;
+	
+	return buf;   
 }
 
 uint8_t mux_channel(uint8_t channel)
@@ -368,145 +389,6 @@ bailout:
     return result;
 }
 
-double SHT21_getHumidity(int sensor_fd)
-{
-    uint16_t result; // return variable
-
-    result = SHT21_readSensor_hm(sensor_fd, TRIGGER_RH_MEASUREMENT_NHM);
-    //result = SHT21_readSensor_hm(TRIGGER_RH_MEASUREMENT_HM);
-
-    return SHT21_CalcRH(result);
-}
-
-double SHT21_getTemperature(int sensor_fd)
-{
-    uint16_t result; // return variable
-
-    result = SHT21_readSensor_hm(sensor_fd,TRIGGER_T_MEASUREMENT_NHM);
-    //result = SHT21_readSensor_hm(TRIGGER_T_MEASUREMENT_HM);
-
-    return SHT21_CalcT(result);
-}
-
-void SHT21_reset(int sensor_fd)
-{
-    int ret_val;
-    ret_val = i2c_smbus_write_byte_data(sensor_fd,
-                                        I2C_ADD,
-                                        SOFT_RESET);
-
-    sleep_ms(15); // wait for SHT to reset
-}
-
-#if 0
-uint8_t SHT21_getSerialNumber(uint8_t return_sn)
-{
-
-    uint8_t serialNumber[8];
-
-    // read memory location 1
-    Wire.beginTransmission(I2C_ADD);
-    Wire.write(0xFA);
-    Wire.write(0x0F);
-    Wire.endTransmission();
-
-    Wire.requestFrom(I2C_ADD, 8);
-    while (Wire.available() < 8)
-    {
-    }
-
-    serialNumber[5] = Wire.read(); // read SNB_3
-    Wire.read();                   // CRC SNB_3 not used
-    serialNumber[4] = Wire.read(); // read SNB_2
-    Wire.read();                   // CRC SNB_2 not used
-    serialNumber[3] = Wire.read(); // read SNB_1
-    Wire.read();                   // CRC SNB_1 not used
-    serialNumber[2] = Wire.read(); // read SNB_0
-    Wire.read();                   // CRC SNB_0 not used
-
-    // read memory location 2
-    Wire.beginTransmission(I2C_ADD);
-    Wire.write(0xFC);
-    Wire.write(0xC9);
-    Wire.endTransmission();
-
-    Wire.requestFrom(I2C_ADD, 6);
-    while (Wire.available() < 6)
-    {
-    }
-
-    serialNumber[1] = Wire.read(); // read SNC_1
-    serialNumber[0] = Wire.read(); // read SNC_0
-    Wire.read();                   // CRC SNC_1/SNC_0 not used
-    serialNumber[7] = Wire.read(); // read SNA_1
-    serialNumber[6] = Wire.read(); // read SNA_0
-    Wire.read();                   // CRC SNA_1/SNA_0 not used
-
-    return serialNumber[return_sn];
-}
-#endif
-//==============================================================================
-// PRIVATE
-//==============================================================================
-
-uint16_t SHT21_readSensor_hm(int sensor_fd, uint8_t command)
-{
-    uint8_t checksum;
-    uint8_t data[3];
-    uint16_t result;
-    uint8_t n = 0;
-    uint8_t d;
-    int ret_val, read_value;
-
-    if (command == TRIGGER_RH_MEASUREMENT_HM || command == TRIGGER_RH_MEASUREMENT_NHM)
-        d = 30;
-    if (command == TRIGGER_T_MEASUREMENT_HM || command == TRIGGER_T_MEASUREMENT_NHM)
-        d = 85;
-
-    ret_val = i2c_smbus_write_byte_data(sensor_fd,
-                                        I2C_ADD,
-                                        command);
-
-    sleep_ms(d);
-
-    do
-    {
-        n++;
-        read_value = i2c_smbus_read_byte(sensor_fd);
-        data[n] = read_value;
-    }while( n < 3);
-
-#if 0
-    Wire.requestFrom(I2C_ADD, 3);
-
-    while (Wire.available() < 3)
-    {
-        sleep_ms(10);
-        n++;
-        if (n > 10)
-            return 0;
-    }
-#endif
-
-    //data[0] = Wire.read();  // read data (MSB)
-    //data[1] = Wire.read();  // read data (LSB)
-    //checksum = Wire.read(); // read checksum
-    checksum = data[2]; // read checksum
-
-
-    result = (data[0] << 8);
-    result += data[1];
-
-    if (SHT21_CRC_Checksum(data, 2, checksum))
-    {
-        SHT21_reset(sensor_fd);
-        return 1;
-    }
-
-    else
-        return result;
-}
-
 double SHT21_CalcRH(uint16_t rh)
 {
 
@@ -523,42 +405,3 @@ double SHT21_CalcT(uint16_t t)
     return (-46.85 + 175.72 / 65536 * (double)t);
 }
 
-uint8_t SHT21_CRC_Checksum(uint8_t data[], uint8_t no_of_bytes, uint8_t checksum)
-{
-    uint8_t crc = 0;
-    uint8_t byteCtr;
-
-    //calculates 8-Bit checksum with given polynomial
-    for (byteCtr = 0; byteCtr < no_of_bytes; ++byteCtr)
-    {
-        crc ^= (data[byteCtr]);
-        uint8_t bit;
-        for (bit = 8; bit > 0; --bit)
-        {
-            if (crc & 0x80)
-                crc = (crc << 1) ^ POLYNOMIAL;
-            else
-                crc = (crc << 1);
-        }
-    }
-    if (crc != checksum)
-        return 1;
-    else
-        return 0;
-}
-
-void sleep_ms(int milliseconds)
-{ // cross-platform sleep function
-#ifdef WIN32
-    Sleep(milliseconds);
-#elif _POSIX_C_SOURCE >= 199309L
-    struct timespec ts;
-    ts.tv_sec = milliseconds / 1000;
-    ts.tv_nsec = (milliseconds % 1000) * 1000000;
-    nanosleep(&ts, NULL);
-#else
-    if (milliseconds >= 1000)
-        sleep(milliseconds / 1000);
-    usleep((milliseconds % 1000) * 1000);
-#endif
-}

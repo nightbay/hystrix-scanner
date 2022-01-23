@@ -5,6 +5,12 @@
         "ccan_json_json.h": "c",
         "cstdio": "c",
         "hystrix-scanner.h": "c",
-        "un.h": "c"
+        "un.h": "c",
+        "i2c.h": "c",
+        "i2c-dev.h": "c",
+        "smbus.h": "c",
+        "ioctl.h": "c",
+        "types.h": "c",
+        "string.h": "c"
     }
 }
