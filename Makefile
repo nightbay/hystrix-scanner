@@ -7,7 +7,7 @@ i2c_implementation ?= sensirion_i2c_hal.c
 CFLAGS = -Os -Wall -fstrict-aliasing -Wstrict-aliasing=1 -Wsign-conversion -fPIC -I.
 LDLIBSOPTIONS=-Wl,-lgpiod
 ifdef CI
-    CFLAGS += -Werror
+	CFLAGS += -Werror
 endif
 
 .PHONY: all clean
@@ -15,8 +15,8 @@ endif
 all: hystrix-scanner
 
 hystrix-scanner: clean
-        $(CC) $(CFLAGS) -o $@  ${sgp40_sources} ${i2c_sources} \
-                ${i2c_implementation} ${common_sources} hystrix-scanner.c ${LDLIBSOPTIONS} ${LDFLAGS}
+	$(CC) $(CFLAGS) -o $@  ${sgp40_sources} ${i2c_sources} \
+	${i2c_implementation} ${common_sources} hystrix-scanner.c ${LDLIBSOPTIONS} ${LDFLAGS}
 
 clean:
-        $(RM) hystrix-scanner
+		$(RM) hystrix-scanner
