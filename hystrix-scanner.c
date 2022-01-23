@@ -38,6 +38,9 @@
 #include <linux/i2c-dev.h>
 #include <i2c/smbus.h>
 #include "hystrix-scanner.h"
+#include "sensirion_common.h"
+#include "sensirion_i2c_hal.h"
+#include "sgp40_i2c.h"
 
 /* gpio code 0-2 */
 int mux_code[] = {
@@ -119,6 +122,9 @@ int main(int argc, char *argv[])
         goto bailout;
     }
 
+    /* setup VOC hal i2c */
+    sensirion_i2c_hal_init();
+
     /* iterate sensors on spi/i2c */
 
     JsonNode *sensor_readings = json_mkarray();
@@ -128,8 +134,8 @@ int main(int argc, char *argv[])
 
     for (channel = 0; channel < 8; channel++)
     {
-	//if( channel != chan_input )
-	//	continue;
+        //if( channel != chan_input )
+        //	continue;
 
         channel_code = mux_channel(channel);
 
@@ -153,9 +159,6 @@ int main(int argc, char *argv[])
             break;
         }
 
-	// non sono i voc ma gli ec
-	//
-	 //json_result = read_voc(channel, channel_code);
         json_append_element(sensor_readings, json_result);
     }
 
@@ -199,25 +202,53 @@ bailout:
 /* VOC (Volatile Organic Compounds)  sensors on spi */
 JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
 {
-    JsonNode *result = json_mkobject();    
-    int dbg = 0;
+    JsonNode *result = json_mkobject();
+    int16_t error = 0;
 
-    if( dbg ){
-        json_append_member(result, "random", json_mknumber((uint16_t)rand()));
-        json_append_member(result, "dbg_chan", json_mknumber(channel));
+    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
+    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
+
+    // Start Measurement
+
+    // Parameters for deactivated humidity compensation:
+    uint16_t default_rh = 0x8000;
+    uint16_t default_t = 0x6666;
+
+    uint16_t sraw_voc;
+
+    sensirion_i2c_hal_sleep_usec(1000000);
+
+    error = sgp40_measure_raw_signal(default_rh, default_t, &sraw_voc);
+    if (error) {
+        JsonNode *json_value = json_mknumber(0);
         JsonNode *json_code = json_mknumber(channels_type);
+        json_append_member(result, "chan", json_mknumber(channel));
+        json_append_member(result, "type", json_mkstring("VOC"));
         json_append_member(result, "code", json_code);
-
-        goto bailout;
+        json_append_member(result, "val", json_value);
+        json_append_member(result, "temp", json_mkstring(temperature));
+        json_append_member(result, "hum", json_mkstring(humidity));
+        json_append_member(result, "status", json_mkbool(false));                
+    } else {
+        JsonNode *json_value = json_mknumber(sraw_voc);
+        JsonNode *json_code = json_mknumber(channels_type);
+        json_append_member(result, "chan", json_mknumber(channel));
+        json_append_member(result, "type", json_mkstring("VOC"));
+        json_append_member(result, "code", json_code);
+        json_append_member(result, "val", json_value);
+        json_append_member(result, "temp", json_mkstring(temperature));
+        json_append_member(result, "hum", json_mkstring(humidity));
+        json_append_member(result, "status", json_mkbool(true));         
     }
 
 bailout:
-    return result;    
+    return result;
 }
 
 /* Electrochemical sensors on i2c */
-JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type){
-   int ret;
+JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type)
+{
+    int ret;
     char *device;
     char *encoded;
     int adc_chan;
@@ -232,18 +263,18 @@ JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type){
     case 0:
         txBuf[0] = my_adc_chan0;
         device = adc_device0;
-	break;	
+        break;
     case 1:
-	txBuf[0] = my_adc_chan1;
+        txBuf[0] = my_adc_chan1;
         device = adc_device0;
         break;
     case 2:
         device = adc_device1;
         txBuf[0] = my_adc_chan0;
-        break;	
+        break;
     case 3:
         device = adc_device1;
-	txBuf[0] = my_adc_chan1;
+        txBuf[0] = my_adc_chan1;
         break;
     }
 
@@ -302,21 +333,28 @@ JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type){
 
     if (ret < 0)
     {
-        printf("error during SPI read on %s\n", device);
-        goto bailout1;
+        JsonNode *json_value = json_mknumber(0);
+        JsonNode *json_code = json_mknumber(channels_type);
+        json_append_member(result, "chan", json_mknumber(channel));
+        json_append_member(result, "type", json_mkstring("EC"));
+        json_append_member(result, "code", json_code);
+        json_append_member(result, "val", json_value);
+        json_append_member(result, "temp", json_mkstring(temperature));
+        json_append_member(result, "hum", json_mkstring(humidity));
+        json_append_member(result, "status", json_mkbool(false));
     }
     else
     {
         inbuf.dbg[0] = buf[0];
         JsonNode *json_value = json_mknumber(inbuf.ch[adc_chan]);
         JsonNode *json_code = json_mknumber(channels_type);
-        json_append_member(result, "value", json_value);
+        json_append_member(result, "chan", json_mknumber(channel));
+        json_append_member(result, "type", json_mkstring("EC"));
         json_append_member(result, "code", json_code);
-        json_append_member(result, "humidity", json_mkstring(humidity));
-        json_append_member(result, "temperature", json_mkstring(temperature));
-        json_append_member(result, "dbg_chan", json_mknumber(channel));
-
-        printf("channel %d adc_chan %d code %d value %x\n\r", channel, adc_chan, channels_type, inbuf.dbg[0]);
+        json_append_member(result, "val", json_value);
+        json_append_member(result, "temp", json_mkstring(temperature));
+        json_append_member(result, "hum", json_mkstring(humidity));
+        json_append_member(result, "status", json_mkbool(true));
     }
 
 bailout1:
@@ -329,24 +367,27 @@ JsonNode *read_rs232(uint8_t channel, uint8_t channels_type)
 {
 }
 
-char *sht21_read_sysfs(char* filename){
-        static char buf[1024];
-        ssize_t len;
-        int fd;
+char *sht21_read_sysfs(char *filename)
+{
+    static char buf[1024];
+    ssize_t len;
+    int fd;
 
-        fd = open(filename, O_RDONLY);
-        if (fd < 0) {
-            sprintf(buf, "%d", 0);
-		}
+    fd = open(filename, O_RDONLY);
+    if (fd < 0)
+    {
+        sprintf(buf, "%d", 0);
+    }
 
-        len = read(fd, buf, sizeof(buf)-1);
-        if (len < 0) {
-            sprintf(buf, "%d", 0);
-        }
+    len = read(fd, buf, sizeof(buf) - 1);
+    if (len < 0)
+    {
+        sprintf(buf, "%d", 0);
+    }
 
-        buf[len] = 0;
-	
-	return buf;   
+    buf[len] = 0;
+
+    return buf;
 }
 
 uint8_t mux_channel(uint8_t channel)
@@ -404,4 +445,3 @@ double SHT21_CalcT(uint16_t t)
 
     return (-46.85 + 175.72 / 65536 * (double)t);
 }
-
