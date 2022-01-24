@@ -122,9 +122,6 @@ int main(int argc, char *argv[])
         goto bailout;
     }
 
-    /* setup VOC hal i2c */
-    sensirion_i2c_hal_init();
-
     /* iterate sensors on spi/i2c */
 
     JsonNode *sensor_readings = json_mkarray();
@@ -212,8 +209,11 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
     char temperature[100];
     char humidity[100];
 
-    sprintf(temperature, "%f", SHT21_CalcT((sht21_temperature_entry)));
-    sprintf(humidity, "%f", SHT21_CalcRH((sht21_umidity_entry)));
+    sensirion_i2c_hal_sleep_usec(500000);
+    sprintf(temperature, "%f", SHT21_CalcT(sht21_read_sysfs(sht21_temperature_entry)));
+
+    sensirion_i2c_hal_sleep_usec(500000);
+    sprintf(humidity, "%f", SHT21_CalcRH(sht21_read_sysfs(sht21_umidity_entry)));
     // Start Measurement
 
     // Parameters for deactivated humidity compensation:
@@ -221,6 +221,20 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
     uint16_t default_t = 0x6666;
 
     uint16_t sraw_voc;
+    /* setup VOC hal i2c */
+    sensirion_i2c_hal_init();
+    uint16_t serial_number[3];
+    uint8_t serial_number_size = 3;
+
+    error = sgp40_get_serial_number(serial_number, serial_number_size);
+
+    if (error) {
+        printf("Error executing sgp40_get_serial_number(): %i\n", error);
+    } else {
+        printf("serial: 0x%04x%04x%04x\n", serial_number[0], serial_number[1],
+               serial_number[2]);
+        printf("\n");
+    }
 
     sensirion_i2c_hal_sleep_usec(1000000);
 
@@ -344,8 +358,11 @@ bailout2:
     char temperature[100];
     char humidity[100];
 
-    sprintf(temperature, "%f", SHT21_CalcT((sht21_temperature_entry)));
-    sprintf(humidity, "%f", SHT21_CalcRH((sht21_umidity_entry)));
+    sensirion_i2c_hal_sleep_usec(500000);
+    sprintf(temperature, "%f", SHT21_CalcT(sht21_read_sysfs(sht21_temperature_entry)));
+    
+    sensirion_i2c_hal_sleep_usec(500000);
+    sprintf(humidity, "%f", SHT21_CalcRH(sht21_read_sysfs(sht21_umidity_entry)));
 
     if (ret < 0)
     {
@@ -400,7 +417,7 @@ uint16_t *sht21_read_sysfs(char *filename)
 
     buf[len] = 0;
     uint16_t result;
-    sscanf( buf, "%u", buf);
+    sscanf( buf, "%hu", &result);
     return result;
 }
 
