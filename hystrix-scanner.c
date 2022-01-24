@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 
         gpiod_line_bulk_add(&gpio_sel_sens, gpio_line);
     }
-
+#if 0
     int ret = gpiod_line_request_bulk_output(&gpio_sel_sens,
                                              "sel_sens", sel_sens);
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
         ;
         goto bailout;
     }
-
+#endif
     /* iterate sensors on spi/i2c */
 
     JsonNode *sensor_readings = json_mkarray();
@@ -432,6 +432,25 @@ uint8_t mux_channel(uint8_t channel)
     }
 
     printf("muxing %d to %x%x%x\n\r", channel, sel_sens[2], sel_sens[1], sel_sens[0]);
+    int ret = gpiod_line_request_bulk_output(&gpio_sel_sens,
+                                             "sel_sens", sel_sens);
+
+    if (ret == -1)
+    {
+        printf("unable to request sel_sens gpios\n\r");
+        goto bailout;
+    }
+
+    ret = gpiod_line_request_bulk_input(&gpio_code,
+                                        "code");
+
+    if (ret == -1)
+    {
+        printf("unable to request code gpios\n\r");
+
+        ;
+        goto bailout;
+    }
 
     int ret = gpiod_line_set_value_bulk(&gpio_sel_sens,
                                         sel_sens);
@@ -457,6 +476,8 @@ uint8_t mux_channel(uint8_t channel)
         result |= code[i] << i;
     }
 
+    gpiod_line_release_bulk(&gpio_sel_sens);
+    gpiod_line_release_bulk(&gpio_code);
 bailout:
     return result;
 }
