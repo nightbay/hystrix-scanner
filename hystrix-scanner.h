@@ -72,7 +72,7 @@ uint8_t mux_channel(uint8_t channel);
 
 double SHT21_CalcRH(uint16_t rh);
 double SHT21_CalcT(uint16_t t);
-char *sht21_read_sysfs(char* filename);
+uint16_t *sht21_read_sysfs(char* filename);
 
 typedef union {
     uint8_t raw[4];

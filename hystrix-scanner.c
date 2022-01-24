@@ -209,9 +209,11 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
     JsonNode *result = json_mkobject();
     int16_t error = 0;
 
-    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
-    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
+    char temperature[100];
+    char humidity[100];
 
+    sprintf(temperature, "%f", SHT21_CalcT((sht21_temperature_entry)));
+    sprintf(humidity, "%f", SHT21_CalcRH((sht21_umidity_entry)));
     // Start Measurement
 
     // Parameters for deactivated humidity compensation:
@@ -339,8 +341,11 @@ bailout1:
 bailout2:
     fd = 0; //solo per bailout;
 
-    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
-    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
+    char temperature[100];
+    char humidity[100];
+
+    sprintf(temperature, "%f", SHT21_CalcT((sht21_temperature_entry)));
+    sprintf(humidity, "%f", SHT21_CalcRH((sht21_umidity_entry)));
 
     if (ret < 0)
     {
@@ -375,7 +380,7 @@ JsonNode *read_rs232(uint8_t channel, uint8_t channels_type)
 {
 }
 
-char *sht21_read_sysfs(char *filename)
+uint16_t *sht21_read_sysfs(char *filename)
 {
     static char buf[1024];
     ssize_t len;
@@ -394,8 +399,9 @@ char *sht21_read_sysfs(char *filename)
     }
 
     buf[len] = 0;
-
-    return buf;
+    uint16_t result;
+    sscanf( buf, "%u", buf);
+    return result;
 }
 
 uint8_t mux_channel(uint8_t channel)
