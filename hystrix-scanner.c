@@ -162,7 +162,11 @@ int main(int argc, char *argv[])
         json_append_element(sensor_readings, json_result);
     }
 
-    char *encoded = json_encode(sensor_readings);
+    JsonNode *ipc_message = json_mkobject();
+    json_append_member(ipc_message, "type", json_mkstring("message"));
+    json_append_member(ipc_message, "data", sensor_readings);
+
+    char *encoded = json_encode(ipc_message);
     printf(encoded);
 
     sock = socket(AF_UNIX, SOCK_STREAM, 0);
