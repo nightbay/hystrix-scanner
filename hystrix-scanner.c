@@ -287,6 +287,7 @@ JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type)
     if (fd < 0)
     {
         printf("can't open device\n\r");
+        ret = -1;
         goto bailout2;
     }
 
@@ -330,10 +331,16 @@ JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type)
         .bits_per_word = bits,
     };
 
-    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
-    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
+
 
     ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+bailout1:    
+    close(fd);
+bailout2:
+    fd = 0; //solo per bailout;
+
+    char *humidity = sht21_read_sysfs(sht21_umidity_entry);
+    char *temperature = sht21_read_sysfs(sht21_temperature_entry);
 
     if (ret < 0)
     {
@@ -361,9 +368,6 @@ JsonNode *read_electrochemical(uint8_t channel, uint8_t channels_type)
         json_append_member(result, "status", json_mkbool(true));
     }
 
-bailout1:
-    close(fd);
-bailout2:
     return result;
 }
 
