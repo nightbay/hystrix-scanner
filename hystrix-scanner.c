@@ -406,7 +406,7 @@ uint16_t sht21_read_sysfs(char *filename)
     return result;
 }
 
-uint8_t mux_channel(uint8_t channel)
+uint8_t mux_channel_legacy(uint8_t channel)
 {
     uint8_t result = 0;
     int sel_sens[3], code[3];
@@ -483,6 +483,66 @@ uint8_t mux_channel(uint8_t channel)
 
     gpiod_line_release_bulk(&gpio_sel_sens);
     gpiod_line_release_bulk(&gpio_code);
+    gpiod_chip_close(gpio_chip);
+bailout:
+    return result;
+}
+uint8_t mux_channel(uint8_t channel)
+{
+    uint8_t result = 0;
+    int sel_sens[3], code[3];
+    struct gpiod_line *gpio_mux_code[3], *gpio_mux_sel[3];
+
+    /* setup: configure gpios */
+    gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
+
+    gpiod_line_bulk_init(&gpio_code);
+    gpiod_line_bulk_init(&gpio_sel_sens);
+
+    /* open the GPIO lines */
+    uint8_t i = 0;
+    for (i = 0; i < 3; i++)
+    {
+        /* setup CODE gpio (input) */
+        gpio_mux_code[i] = gpiod_chip_get_line(gpio_chip, mux_code[i]);
+        //gpiod_line_bulk_add(&gpio_code, gpio_line);
+
+        /* setup SEL_SENS gpio (output) */
+        gpio_mux_sel[i] = gpiod_chip_get_line(gpio_chip, mux_sel_sens[i]);
+        
+        sel_sens[i] = channel & (1U << i) ? 1 : 0;
+    }
+
+    printf("muxing %d to %x%x%x\n\r", channel, sel_sens[2], sel_sens[1], sel_sens[0]);
+
+    int ret = 0;
+    for( i = 0; i < 3; i++) {
+        ret = gpiod_line_set_value(gpio_mux_code[i], sel_sens[i]);
+        if (ret == -1)
+        {
+            printf("unable to set sel_sens gpios\n\r");
+            result = 0xff;
+            goto bailout;
+        }
+
+        ret = gpiod_line_get_value(gpio_mux_sel[i]);
+        if( ret == -1 ){
+            printf("unable to get code gpios\n\r");
+            result = 0xff;
+            goto bailout;
+        }
+        else{
+            code[i] = ret;
+        }
+    }
+
+    for (i = 0; i < 3; i++)
+    {
+        result |= code[i] << i;
+        gpiod_line_release(gpio_mux_sel[i]);
+        gpiod_line_release(gpio_mux_code[i]);
+    }
+
     gpiod_chip_close(gpio_chip);
 bailout:
     return result;
