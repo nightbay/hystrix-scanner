@@ -490,34 +490,31 @@ bailout:
 uint8_t mux_channel(uint8_t channel)
 {
     uint8_t result = 0;
-    int sel_sens[3], code[3];
+    int sel_sens[3], code[3], ret;
     struct gpiod_line *gpio_mux_code[3], *gpio_mux_sel[3];
 
     /* setup: configure gpios */
     gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
 
-    gpiod_line_bulk_init(&gpio_code);
-    gpiod_line_bulk_init(&gpio_sel_sens);
+    //gpiod_line_bulk_init(&gpio_code);
+    //gpiod_line_bulk_init(&gpio_sel_sens);
 
     /* open the GPIO lines */
     uint8_t i = 0;
     for (i = 0; i < 3; i++)
     {
-        /* setup CODE gpio (input) */
-        gpio_mux_code[i] = gpiod_chip_get_line(gpio_chip, mux_code[i]);
-        //gpiod_line_bulk_add(&gpio_code, gpio_line);
+        sel_sens[i] = channel & (1U << i) ? 1 : 0;
 
         /* setup SEL_SENS gpio (output) */
         gpio_mux_sel[i] = gpiod_chip_get_line(gpio_chip, mux_sel_sens[i]);
-        
-        sel_sens[i] = channel & (1U << i) ? 1 : 0;
-    }
+        if (gpio_mux_sel[i] == NULL )
+        {
+            printf("unable to get chip_line %x\n\r", mux_sel_sens[i]);
+            result = 0xff;
+            goto bailout;
+        }
 
-    printf("muxing %d to %x%x%x\n\r", channel, sel_sens[2], sel_sens[1], sel_sens[0]);
-
-    int ret = 0;
-    for( i = 0; i < 3; i++) {
-        ret = gpiod_line_set_value(gpio_mux_code[i], sel_sens[i]);
+        ret = gpiod_line_request_output(gpio_mux_sel[i], "mux_sel_sens", sel_sens[i]);    
         if (ret == -1)
         {
             printf("unable to set sel_sens gpios\n\r");
@@ -525,24 +522,37 @@ uint8_t mux_channel(uint8_t channel)
             goto bailout;
         }
 
+        /* setup CODE gpio (input) */        
+        gpio_mux_code[i] = gpiod_chip_get_line(gpio_chip, mux_code[i]);
+        if (gpio_mux_code[i] == NULL )
+        {
+            printf("unable to get chip line %x\n\r", mux_code[i]);
+            result = 0xff;
+            goto bailout;
+        }        
+        gpiod_line_request_input(gpio_mux_sel[i], "mux_code");
+        if( ret == -1 ){
+            printf("unable to request code gpios\n\r");
+            result = 0xff;
+            goto bailout;
+        }        
+    
         ret = gpiod_line_get_value(gpio_mux_sel[i]);
         if( ret == -1 ){
-            printf("unable to get code gpios\n\r");
+            printf("unable to read code gpios\n\r");
             result = 0xff;
             goto bailout;
         }
         else{
             code[i] = ret;
-        }
-    }
+        }    
 
-    for (i = 0; i < 3; i++)
-    {
         result |= code[i] << i;
         gpiod_line_release(gpio_mux_sel[i]);
         gpiod_line_release(gpio_mux_code[i]);
     }
-
+    
+    printf("muxing %d to %x%x%x => %x%x%x\n\r", channel, sel_sens[2], sel_sens[1], sel_sens[0], code[2], code[1], code[0]);
     gpiod_chip_close(gpio_chip);
 bailout:
     return result;
