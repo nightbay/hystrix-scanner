@@ -40,6 +40,7 @@
 #define EC_CHANNELS 0
 
 #define VOC_CHANNELS    (1 << 2)
+#define PM_CHANNEL      (1 << 3)
 
 #define SEL_0           (1 << 0)
 #define SEL_1           (1 << 1)
@@ -72,7 +73,7 @@ uint8_t mux_channel(uint8_t channel);
 
 double SHT21_CalcRH(uint16_t rh);
 double SHT21_CalcT(uint16_t t);
-uint16_t *sht21_read_sysfs(char* filename);
+uint16_t sht21_read_sysfs(char* filename);
 
 typedef union {
     uint8_t raw[4];

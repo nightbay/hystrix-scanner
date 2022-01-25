@@ -80,25 +80,6 @@ int main(int argc, char *argv[])
     int chan_input = atoi(argv[2]);
     printf("chan_input %d\n\r", chan_input);
 
-    /* setup: configure gpios */
-    gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
-
-    gpiod_line_bulk_init(&gpio_code);
-    gpiod_line_bulk_init(&gpio_sel_sens);
-
-    /* open the GPIO lines */
-    uint8_t i = 0;
-    for (i = 0; i < 3; i++)
-    {
-        /* setup CODE gpio (input) */
-        struct gpiod_line *gpio_line = gpiod_chip_get_line(gpio_chip, mux_code[i]);
-        gpiod_line_bulk_add(&gpio_code, gpio_line);
-
-        /* setup SEL_SENS gpio (output) */
-        gpio_line = gpiod_chip_get_line(gpio_chip, mux_sel_sens[i]);
-
-        gpiod_line_bulk_add(&gpio_sel_sens, gpio_line);
-    }
 #if 0
     int ret = gpiod_line_request_bulk_output(&gpio_sel_sens,
                                              "sel_sens", sel_sens);
@@ -131,8 +112,8 @@ int main(int argc, char *argv[])
 
     for (channel = 0; channel < 8; channel++)
     {
-        //if( channel != chan_input )
-        //	continue;
+        if( channel != chan_input )
+        	continue;
 
         channel_code = mux_channel(channel);
 
@@ -143,7 +124,7 @@ int main(int argc, char *argv[])
             goto bailout;
         }
 
-        uint8_t channels_type = channel & VOC_CHANNELS;
+        uint8_t channels_type = channel & (VOC_CHANNELS | PM_CHANNEL );
         JsonNode *json_result;
 
         switch (channels_type)
@@ -153,6 +134,9 @@ int main(int argc, char *argv[])
             break;
         case EC_CHANNELS:
             json_result = read_electrochemical(channel, channel_code);
+            break;
+        case PM_CHANNEL:
+            json_result = json_mkstring("lettura PM");
             break;
         }
 
@@ -261,6 +245,7 @@ JsonNode *read_voc(uint8_t channel, uint8_t channels_type)
         json_append_member(result, "status", json_mkbool(true));         
     }
 
+    sensirion_i2c_hal_free();
 bailout:
     return result;
 }
@@ -397,7 +382,7 @@ JsonNode *read_rs232(uint8_t channel, uint8_t channels_type)
 {
 }
 
-uint16_t *sht21_read_sysfs(char *filename)
+uint16_t sht21_read_sysfs(char *filename)
 {
     static char buf[1024];
     ssize_t len;
@@ -424,7 +409,27 @@ uint16_t *sht21_read_sysfs(char *filename)
 uint8_t mux_channel(uint8_t channel)
 {
     uint8_t result = 0;
-    int sel_sens[3], code[3], i;
+    int sel_sens[3], code[3];
+
+    /* setup: configure gpios */
+    gpio_chip = gpiod_chip_open_by_number(GPIO_BANK);
+
+    gpiod_line_bulk_init(&gpio_code);
+    gpiod_line_bulk_init(&gpio_sel_sens);
+
+    /* open the GPIO lines */
+    uint8_t i = 0;
+    for (i = 0; i < 3; i++)
+    {
+        /* setup CODE gpio (input) */
+        struct gpiod_line *gpio_line = gpiod_chip_get_line(gpio_chip, mux_code[i]);
+        gpiod_line_bulk_add(&gpio_code, gpio_line);
+
+        /* setup SEL_SENS gpio (output) */
+        gpio_line = gpiod_chip_get_line(gpio_chip, mux_sel_sens[i]);
+
+        gpiod_line_bulk_add(&gpio_sel_sens, gpio_line);
+    }
 
     for (i = 0; i < 3; i++)
     {
@@ -478,6 +483,7 @@ uint8_t mux_channel(uint8_t channel)
 
     gpiod_line_release_bulk(&gpio_sel_sens);
     gpiod_line_release_bulk(&gpio_code);
+    gpiod_chip_close(gpio_chip);
 bailout:
     return result;
 }
