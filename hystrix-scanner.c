@@ -457,7 +457,7 @@ uint8_t mux_channel(uint8_t channel)
         goto bailout;
     }
 
-    int ret = gpiod_line_set_value_bulk(&gpio_sel_sens,
+    ret = gpiod_line_set_value_bulk(&gpio_sel_sens,
                                         sel_sens);
 
     if (ret == -1)
