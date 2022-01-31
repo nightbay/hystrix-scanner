@@ -11,6 +11,11 @@
         "smbus.h": "c",
         "ioctl.h": "c",
         "types.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "sensirion_i2c_hal.h": "c",
+        "cstdlib": "c",
+        "sgp40_i2c.h": "c",
+        "sensirion_common.h": "c",
+        "sensirion_config.h": "c"
     }
 }

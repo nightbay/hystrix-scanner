@@ -36,19 +36,35 @@
 
 #include <stdio.h>  // printf
 
+#include <sys/ioctl.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <linux/types.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "sensirion_common.h"
 #include "sensirion_i2c_hal.h"
 #include "sgp40_i2c.h"
-// #include <inttypes.h>
 
-/*
- * TO USE CONSOLE OUTPUT (PRINTF) YOU MAY NEED TO ADAPT THE INCLUDE ABOVE OR
- * DEFINE IT ACCORDING TO YOUR PLATFORM:
- * #define printf(...)
- */
 
-int main(void) {
+int main(int argc, char *argv[])
+{
+    struct sockaddr_un server;
+    int sock;
     int16_t error = 0;
+    int exitcode = EXIT_FAILURE;
+    char buf[256];
+
+    if( argc < 2){
+        perror("not enough arguments");
+        exitcode = EXIT_FAILURE;
+        goto bailout;
+    }
+
+    int chan_input = atoi(argv[2]);
 
     sensirion_i2c_hal_init();
 
@@ -57,16 +73,12 @@ int main(void) {
 
     error = sgp40_get_serial_number(serial_number, serial_number_size);
 
-    if (error) {
-        printf("Error executing sgp40_get_serial_number(): %i\n", error);
-    } else {
-        // printf("Serial number: %" PRIu64 "\n",
-        //         (((uint64_t)serial_number[0]) << 32) |
-        //         (((uint64_t)serial_number[1]) << 16) |
-        //         ((uint64_t)serial_number[2]));
-        printf("serial: 0x%04x%04x%04x\n", serial_number[0], serial_number[1],
-               serial_number[2]);
-        printf("\n");
+    if( error ){
+
+        sprintf(buf, "Error executing sgp40_get_serial_number(): %i\n", error);
+        perror(buf);
+        exitcode = EXIT_FAILURE;
+        goto bailout;
     }
 
     // Start Measurement
@@ -74,22 +86,52 @@ int main(void) {
     // Parameters for deactivated humidity compensation:
     uint16_t default_rh = 0x8000;
     uint16_t default_t = 0x6666;
+    uint16_t sraw_voc;
 
-    int i;
-    for (i = 0; i < 60; i++) {
-        uint16_t sraw_voc;
+    sensirion_i2c_hal_sleep_usec(1000000);
+    error = sgp40_measure_raw_signal(default_rh, default_t, &sraw_voc);
 
+    if (error) {
         sensirion_i2c_hal_sleep_usec(1000000);
-
         error = sgp40_measure_raw_signal(default_rh, default_t, &sraw_voc);
-        if (error) {
-            printf("Error executing sgp40_measure_raw_signal(): "
-                   "%i\n",
-                   error);
-        } else {
-            printf("SRAW VOC: %u\n", sraw_voc);
+        if( error ){
+            perror("cannot read sgp40");
+            exitcode = EXIT_FAILURE;
+            goto bailout;
         }
+    } 
+
+    //fallthrough after retry successful
+    sprintf(buf, "{ \"chan\" : %d, \"val\" : %u }", chan_input, sraw_voc);    
+
+    sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (sock < 0)
+    {
+        perror("opening stream socket");
+        exitcode = EXIT_FAILURE;
+        goto bailout;
     }
 
-    return 0;
+    server.sun_family = AF_UNIX;
+    strcpy(server.sun_path, argv[1]);
+
+    if (connect(sock, (struct sockaddr *)&server, sizeof(struct sockaddr_un)) < 0)
+    {
+        close(sock);
+        perror("connecting stream socket");
+        exitcode = EXIT_FAILURE;
+        goto bailout;
+    }
+
+    if (write(sock, buf, strlen(buf)) < 0)
+    {
+        perror("writing on stream socket");
+        exitcode = EXIT_FAILURE;
+    }
+
+    close(sock);
+
+bailout:
+    return exitcode;
 }

@@ -65,15 +65,8 @@
 //==============================================================================
 
 
-JsonNode* read_electrochemical(uint8_t channel, uint8_t channels_type);
-JsonNode* read_voc(uint8_t channel, uint8_t channels_type);
-JsonNode* read_rs232(uint8_t channel, uint8_t channels_type);
-uint8_t mux_channel(uint8_t channel);
+JsonNode* read_electrochemical(uint8_t channel);
 
-
-double SHT21_CalcRH(uint16_t rh);
-double SHT21_CalcT(uint16_t t);
-uint16_t sht21_read_sysfs(char* filename);
 
 typedef union {
     uint8_t raw[4];

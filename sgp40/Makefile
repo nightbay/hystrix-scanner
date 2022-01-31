@@ -12,11 +12,11 @@ endif
 
 .PHONY: all clean
 
-all: sgp40_i2c_example_usage
+all: hystrix-voc
 
-sgp40_i2c_example_usage: clean
+hystrix-voc: clean
 	$(CC) $(CFLAGS) -o $@  ${sgp40_sources} ${i2c_sources} \
-		${i2c_implementation} ${common_sources} sgp40_i2c_example_usage.c
+		${i2c_implementation} ${common_sources} hystrix-voc.c
 
 clean:
-	$(RM) sgp40_i2c_example_usage
+	$(RM) hystrix-voc

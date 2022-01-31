@@ -4,10 +4,10 @@ include default_config.inc
 
 .PHONY: all clean
 
-all: sps30_example_usage
+all: hystrix-pm
 
-sps30_example_usage: clean
-	$(CC) $(CFLAGS) -o $@ ${sps30_uart_sources} ${uart_sources} ${sps30_uart_dir}/sps30_example_usage.c
+hystrix-pm: clean
+	$(CC) $(CFLAGS) -o $@ ${sps30_uart_sources} ${uart_sources} ${sps30_uart_dir}/hystrix-pm.c
 
 clean:
-	$(RM) sps30_example_usage
+	$(RM) hystrix-pm
