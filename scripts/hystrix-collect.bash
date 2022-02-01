@@ -1,8 +1,8 @@
 #!/bin/bash
 
-HYSTRIX_PM="echo pm "
-HYSTRIX_VOC="echo voc "
-HYSTRIX_EC="echo ec "
+HYSTRIX_PM="/home/root/hystrix-pm "
+HYSTRIX_VOC="/home/root/hystrix-voc "
+HYSTRIX_EC="/home/root/hystrix-ec "
 HYSTRIX_HUMTEMP="/sys/class/hwmon/hwmon1"
 GPIO_BASE="/sys/class/gpio"
 
@@ -44,12 +44,10 @@ read_code(){
 }
 
 read_humidity (){
-  echo "reading humidity"
   CHAN_HUM=`cat ${HYSTRIX_HUMTEMP}/humidity1_input`
 }
 
 read_temperature () {
-  echo "reading temperature"
   CHAN_TEMP=`cat ${HYSTRIX_HUMTEMP}/temp1_input` 
 }
 
@@ -78,15 +76,24 @@ read_channel () {
   then
     CHAN_STATUS="false"
   fi
+  echo "chan ${1} - read sensor ${CHAN_READING}"
 
   #read code
-  read_code
+  local EC_CODE="\"code\":9,"
+
+  case ${1} in
+    [0-3]) 
+          read_code
+          EC_CODE="\"code\":$((2#${CHAN_CODE})),"
+          ;;
+  esac
 
   #load hwmon
   echo sht21 0x40 > /sys/bus/i2c/devices/i2c-2/new_device
+
   #discard first hum/temp reading
-  echo "discard: `cat ${HYSTRIX_HUMTEMP}/humidity1_input`"
-  echo "discard: `cat ${HYSTRIX_HUMTEMP}/temp1_input`"
+  echo "chan ${1} discard: `cat ${HYSTRIX_HUMTEMP}/humidity1_input`"
+  echo "chan ${1} discard: `cat ${HYSTRIX_HUMTEMP}/temp1_input`"
 
   #read humidity
   read_humidity
@@ -96,7 +103,7 @@ read_channel () {
     CHAN_STATUS="false"
     CHAN_HUM="0"
   else
-      echo "read humidity: ${CHAN_HUM}"
+      echo "chan ${1} - read humidity : ${CHAN_HUM}"
   fi
 
   #read temperature
@@ -107,24 +114,27 @@ read_channel () {
     CHAN_STATUS="false"
     CHAN_TEMP="0"
   else
-      echo "read temperature: ${CHAN_TEMP}"      
+      echo "chan ${1} - read temperature: ${CHAN_TEMP}"      
   fi
 
   #unload hwmon
   echo 0x40 > /sys/bus/i2c/devices/i2c-2/delete_device
 
   # notify server
-  echo "notify to server: ${HYSTRIX_SERVER_SOCKET}"
-  echo "{\"chan\":${1},\"code\":$((2#${CHAN_CODE})),\"hum\":${CHAN_HUM},\"temp\":${CHAN_TEMP},\"status\":${CHAN_STATUS}}" | socat UNIX-CONNECT:${HYSTRIX_SERVER_SOCKET} -
+  echo "{\"chan\":${1},${EC_CODE}\"hum\":${CHAN_HUM},\"temp\":${CHAN_TEMP},\"status\":${CHAN_STATUS}}" | socat UNIX-CONNECT:${HYSTRIX_SERVER_SOCKET} -
 }
 
-read_pm_channel () {  
-  eval "${HYSTRIX_PM} ${HYSTRIX_SERVER_SOCKET} ${1}"
-  local CHAN_READING=$?
+read_pm_channel () {
+  eval "${HYSTRIX_PM} ${HYSTRIX_SERVER_SOCKET} ${1}"  
+  CHAN_READING=$?
+  echo "chan 8 - read sensor ${CHAN_READING}"
   if test ${CHAN_READING} -ne 0
   then
     CHAN_STATUS="false"
+  else
+    CHAN_STATUS="true"
   fi
+  echo "{\"chan\":${1},\"code\":8,\"status\":${CHAN_STATUS}}" | socat UNIX-CONNECT:${HYSTRIX_SERVER_SOCKET} -
 }
 
 # main sequence
