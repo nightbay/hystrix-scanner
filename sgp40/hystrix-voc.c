@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     struct sockaddr_un server;
     int sock;
     int16_t error = 0;
-    int exitcode = EXIT_FAILURE;
+    int exitcode = EXIT_SUCCESS;
     char buf[256];
 
     if( argc < 2){
