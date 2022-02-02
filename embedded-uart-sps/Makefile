@@ -1,4 +1,4 @@
-drivers=sps30-uart sen44-uart
+drivers=sps30-uart
 clean_drivers=$(foreach d, $(drivers), clean_$(d))
 release_drivers=$(foreach d, $(drivers), release/$(d))
 
@@ -6,9 +6,8 @@ release_drivers=$(foreach d, $(drivers), release/$(d))
 
 all: $(drivers)
 
-prepare: sps-common/sps_git_version.c
 
-$(drivers): prepare
+$(drivers): FORCE
 	cd $@ && $(MAKE) $(MFLAGS)
 
 sps-common/sps_git_version.c: FORCE
@@ -19,7 +18,7 @@ sps-common/sps_git_version.c: FORCE
 		{print "const char * SPS_DRV_VERSION_STR = \"" $$0"\";"} \
 		END {}' > $@ || echo "Can't update version, not a git repository"
 
-$(release_drivers): sps-common/sps_git_version.c
+$(release_drivers): 
 	export rel=$@ && \
 	export driver=$${rel#release/} && \
 	export tag="$$(git describe --always --dirty)" && \
@@ -47,7 +46,7 @@ $(clean_drivers):
 	cd $${driver} && $(MAKE) clean $(MFLAGS) && cd -
 
 clean: $(clean_drivers)
-	rm -rf release sps-common/sps_git_version.c
+	rm -rf release 
 
 style-fix:
 	@if [ $$(git status --porcelain -uno 2> /dev/null | wc -l) -gt "0" ]; \

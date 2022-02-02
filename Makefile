@@ -11,10 +11,10 @@ endif
 all: hystrix-ec hystrix-pm hystrix-voc
 
 hystrix-voc:
-	cd sgp40 && make all
+	$(MAKE) -C sgp40 all
 
 hystrix-pm:
-	cd embedded-uart-sps && make all
+	$(MAKE) -C embedded-uart-sps all
 	
 hystrix-ec: clean
 	$(CC) $(CFLAGS) -o $@   \
@@ -22,5 +22,5 @@ hystrix-ec: clean
 
 clean:
 		$(RM) hystrix-ec
-		make -Csgp40 clean
-		make -C embedded-uart-sps clean
+		$(MAKE) -C sgp40 clean
+		$(MAKE) -C embedded-uart-sps clean
