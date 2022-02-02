@@ -1,22 +1,26 @@
-common_sources = sensirion_config.h sensirion_common.h sensirion_common.c hystrix-ec.h ccan_json_json.h ccan_json_json.c
-i2c_sources = sensirion_i2c_hal.h sensirion_i2c.h sensirion_i2c.c
-sgp40_sources = sgp40_i2c.h sgp40_i2c.c
-
-i2c_implementation ?= sensirion_i2c_hal.c
+common_sources = hystrix-ec.h ccan_json_json.h ccan_json_json.c
 
 CFLAGS = -Os -Wall -fstrict-aliasing -Wstrict-aliasing=1 -Wsign-conversion -fPIC -I.
-LDLIBSOPTIONS=-Wl,-lgpiod
+
 ifdef CI
 	CFLAGS += -Werror
 endif
 
 .PHONY: all clean
 
-all: hystrix-ec
+all: hystrix-ec hystrix-pm hystrix-voc
 
+hystrix-voc:
+	cd sgp40 && make all
+
+hystrix-pm:
+	cd embedded-uart-sps && make all
+	
 hystrix-ec: clean
-	$(CC) $(CFLAGS) -o $@  ${sgp40_sources} ${i2c_sources} \
-	${i2c_implementation} ${common_sources} hystrix-ec.c ${LDLIBSOPTIONS} ${LDFLAGS}
+	$(CC) $(CFLAGS) -o $@   \
+	${common_sources} hystrix-ec.c  ${LDFLAGS}
 
 clean:
 		$(RM) hystrix-ec
+		make -Csgp40 clean
+		make -C embedded-uart-sps clean

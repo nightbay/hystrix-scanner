@@ -25,22 +25,16 @@
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <linux/spi/spidev.h>
-#include <gpiod.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 #include <linux/types.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <string.h>
-#include <linux/i2c.h>
-#include <linux/i2c-dev.h>
-#include <i2c/smbus.h>
 #include "hystrix-ec.h"
-#include "sensirion_common.h"
-#include "sensirion_i2c_hal.h"
-#include "sgp40_i2c.h"
 
 
 static const char *adc_device0 = "/dev/spidev1.0";
