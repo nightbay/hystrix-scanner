@@ -1,8 +1,8 @@
 #!/bin/bash
 
-HYSTRIX_PM="/home/root/hystrix-pm "
-HYSTRIX_VOC="/home/root/hystrix-voc "
-HYSTRIX_EC="/home/root/hystrix-ec "
+HYSTRIX_PM="hystrix-pm "
+HYSTRIX_VOC="hystrix-voc "
+HYSTRIX_EC="hystrix-ec "
 HYSTRIX_HUMTEMP="/sys/class/hwmon/hwmon1"
 GPIO_BASE="/sys/class/gpio"
 
