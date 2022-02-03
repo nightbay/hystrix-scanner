@@ -137,16 +137,10 @@ int main(int argc, char *argv[]){
             continue;
         } else {
             sprintf(buf, "{\"chan\" : %d, \"val\": \""
-                " %0.2f pm1.0"
-                " %0.2f pm2.5"
-                " %0.2f pm4.0"
-                " %0.2f pm10.0"
-                " %0.2f nc0.5"
-                " %0.2f nc1.0"
-                " %0.2f nc2.5"
-                " %0.2f nc4.5"
-                " %0.2f nc10.0"
-                " %0.2f typical particle size"
+                "%0.2f pm1.0"
+                "%0.2f pm2.5"
+                "%0.2f pm4.0"
+                "%0.2f pm10.0"
                 "\"}",
                 chan_input,            
                 m.mc_1p0, m.mc_2p5, m.mc_4p0, m.mc_10p0, m.nc_0p5,
